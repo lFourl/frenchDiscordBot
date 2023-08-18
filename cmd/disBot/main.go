@@ -2,18 +2,16 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
+	"net/http"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 const (
-	// set these up in a .env
-	token         = "YOUR_BOT_TOKEN_HERE"
-	newsChannelID = "YOUR_NEWS_CHANNEL_ID_HERE"
+	token           = "YOUR_DISCORD_BOT_TOKEN"
+	channelID       = "YOUR_DISCORD_CHANNEL_ID"
+	newsAPIEndpoint = "https://example.com/api/randomFrenchNews" // Replace with your actual news source
 )
 
 func main() {
@@ -23,42 +21,52 @@ func main() {
 		return
 	}
 
-	dg.AddMessageCreate(messageCreate)
-
+	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
 		fmt.Println("Error opening connection:", err)
 		return
 	}
 
-	fmt.Println("Bot is now running. Press CTRL+C to exit.")
-	defer dg.Close()
+	// Keep the bot running until an interrupt signal is received.
+	fmt.Println("Bot is now running. Press Ctrl+C to exit.")
 
-	go sendMorningNews(dg)
+	// Send a news article every morning at 9AM
+	go sendDailyNews(dg)
 
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc
+	select {}
 }
 
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-
-	// We can ddd any custom commands or responses here
-}
-
-func sendMorningNews(s *discordgo.Session) {
+func sendDailyNews(dg *discordgo.Session) {
 	for {
 		now := time.Now()
-		if now.Hour() == 8 && now.Minute() == 0 {
-			_, err := s.ChannelMessageSend(newsChannelID, "Bonjour! Voici les actualités du jour : *insérer lien de l'article*")
-			if err != nil {
-				fmt.Println("Error sending message:", err)
-			}
+		next := now.Add(time.Hour * 24)
+		next = time.Date(next.Year(), next.Month(), next.Day(), 9, 0, 0, 0, next.Location())
+		duration := next.Sub(now)
+		time.Sleep(duration)
+
+		news, err := fetchNewsArticle()
+		if err != nil {
+			fmt.Println("Error fetching news:", err)
+			continue
 		}
 
-		time.Sleep(1 * time.Minute)
+		_, err = dg.ChannelMessageSend(channelID, news)
+		if err != nil {
+			fmt.Println("Error sending message:", err)
+		}
 	}
+}
+
+func fetchNewsArticle() (string, error) {
+	resp, err := http.Get(newsAPIEndpoint)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	// This assumes the API returns plain text. Modify accordingly if it returns JSON/XML/etc.
+	var article string
+	_, err = fmt.Fscanf(resp.Body, "%s", &article)
+	return article, err
 }
