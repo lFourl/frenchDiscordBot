@@ -11,7 +11,7 @@ import (
 const (
 	token           = "YOUR_DISCORD_BOT_TOKEN"
 	channelID       = "YOUR_DISCORD_CHANNEL_ID"
-	newsAPIEndpoint = "https://example.com/api/randomFrenchNews" // Replace with your actual news source
+	newsAPIEndpoint = "https://newsapi.org/v2/top-headlines?country=fr&apiKey=API_KEY"
 )
 
 func main() {
@@ -28,7 +28,6 @@ func main() {
 		return
 	}
 
-	// Keep the bot running until an interrupt signal is received.
 	fmt.Println("Bot is now running. Press Ctrl+C to exit.")
 
 	go sendDailyNews(dg)
@@ -36,6 +35,7 @@ func main() {
 	select {}
 }
 
+// Send news article every morning at 6am
 func sendDailyNews(dg *discordgo.Session) {
 	for {
 		now := time.Now()
